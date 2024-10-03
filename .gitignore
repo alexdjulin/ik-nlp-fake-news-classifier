@@ -166,3 +166,6 @@ pickle/
 REAL_DATA.txt
 TRAINING_DATA.txt
 Notes.ipynb
+*.pptx
+*.pdf
+*.csv

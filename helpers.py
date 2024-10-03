@@ -18,9 +18,14 @@ from unidecode import unidecode
 from nltk.corpus import stopwords
 from tqdm import tqdm
 tqdm.pandas()
+import nltk
+nltk.download('stopwords')
+import spacy
+nlp = spacy.load("en_core_web_sm")
 
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, confusion_matrix
 
 SEPARATOR = 100 * '-'
 
@@ -76,7 +81,7 @@ def print_text(X, y, idx=None):
 def clean_text(text):
 
     # Remove special characters
-    text = re.sub(r'[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]', '', text)
+    text = re.sub(r'[^A-Za-z\s]', '', text)
 
     # Normalize accents
     text = unidecode(text)
@@ -95,8 +100,8 @@ def clean_text(text):
 
 def remove_stopwords(text):
 
-    # get spanish stopwords
-    stopwords_sp = stopwords.words("spanish")
+    # get english stopwords
+    stopwords_sp = stopwords.words("english")
 
     # tokenize the text by splitting on spaces
     tokens = text.split()
@@ -105,15 +110,78 @@ def remove_stopwords(text):
     return ' '.join(tokens)
 
 
-def clean_dataset(X):
+def remove_short_sentences(X, y, min_len=3):
+
+    def filter_short_texts(text):
+        return len(text.split()) >= min_len
+
+    X_filtered = X[X.progress_apply(filter_short_texts)].reset_index(drop=True)
+    y_filtered = y[X.progress_apply(filter_short_texts)].reset_index(drop=True)
+
+    return X_filtered, y_filtered
+
+
+def lemmatize_text(text):
+    doc = nlp(text, disable=['ner', 'parser'])
+
+    # Extract the lemmatized version of each token
+    return " ".join([token.lemma_ for token in doc])
+
+
+def clean_dataset(X, y):
+
+    X_clean = X.copy()
+    y_clean = y.copy()
 
     # apply cleaning
-    X_clean = X.progress_apply(clean_text)
+    print("Cleaning Text")
+    X_clean = X_clean.progress_apply(clean_text)
 
     # apply removing stopwords
+    print("Removing Stopwords")
     X_clean = X_clean.progress_apply(remove_stopwords)
 
-    return X_clean
+    # apply remove short sentences (less than 3 words)
+    print("Removing short sentences")
+    X_clean, y_clean = remove_short_sentences(X_clean, y_clean)
+
+    # apply lemmatization
+    print("Lemmatizing Text")
+    X_clean = X_clean.progress_apply(lemmatize_text)
+
+    return X_clean, y_clean
+
+
+def vectorize_bow(X_train, X_test=None):
+    # Initialize CountVectorizer
+    vectorizer = CountVectorizer()
+
+    # fit and transform messages
+    X_train_vect = vectorizer.fit_transform(X_train)
+
+    if X_test is not None:
+        X_test_vect = vectorizer.transform(X_test)
+        return X_train_vect, X_test_vect
+
+    return X_train_vect
+
+
+def vectorize_tfidf(X_train, X_test=None):
+
+    ngrange = (1, 3)
+    max_feat = None
+
+    # Initialise Tfidf vectorizer
+    tfidf_vectorizer = TfidfVectorizer(min_df=1, ngram_range=ngrange, max_features=max_feat)
+
+    # fit vectorizer on train data, then apply it to test data
+    X_train_vect = tfidf_vectorizer.fit_transform(X_train).toarray()
+
+    if X_test is not None:
+        X_test_vect = tfidf_vectorizer.transform(X_test).toarray()
+        return X_train_vect, X_test_vect
+    
+    return X_train_vect
 
 
 def split_dataset(X, y):
@@ -129,15 +197,16 @@ def split_dataset(X, y):
     return X_train, X_test, y_train, y_test
 
 
-def load_dataset(file_path, force_reload=False):
+def load_dataset(file_path, split=True, clean=True, force_reload=False):
 
     # check if pickle files exist
+    os.makedirs('pickle', exist_ok=True)
     x_train_pickle = os.path.join('pickle/x_train.pkl')
     y_train_pickle = os.path.join('pickle/y_train.pkl')
     x_test_pickle = os.path.join('pickle/x_test.pkl')
     y_test_pickle = os.path.join('pickle/y_test.pkl')
 
-    if pickled_data_exists([x_train_pickle, y_train_pickle, x_test_pickle, y_test_pickle]) and not force_reload:
+    if pickled_data_exists([x_train_pickle, y_train_pickle, x_test_pickle, y_test_pickle]) and split and not force_reload:
 
         # Load pickled data
         print("Loading split dataset from pickle files")
@@ -146,24 +215,32 @@ def load_dataset(file_path, force_reload=False):
         y_train = load_from_pickle(y_train_pickle)
         y_test = load_from_pickle(y_test_pickle)
 
+        return X_train, X_test, y_train, y_test
+
+    print("Loading dataset.")
+
+    # load dataset
+    data = pd.read_csv(file_path, sep='\t', header=None, names=['label', 'text'])
+    X, y = data["text"], data["label"]
+
+    # clean dataset
+    if clean:
+        print("Cleaning dataset.")
+        X_clean, y_clean = clean_dataset(X, y)
     else:
-        print("No pickle file found. Loading and cleaning dataset.")
+        X_clean, y_clean = X_train.copy(), y_train.copy()
 
-        # load dataset
-        data = pd.read_csv(file_path, sep='\t', header=None, names=['label', 'text'])
-        X, y = data["text"], data["label"]
-
-        # clean dataset
-        X_clean = clean_dataset(X)
-
-        # split dataset
-        X_train, X_test, y_train, y_test = split_dataset(X_clean, y)
+    # split dataset
+    if split:
+        print("Splitting dataset.")
+        X_train, X_test, y_train, y_test = split_dataset(X_clean, y_clean)
 
         # save pickle files
-        os.makedirs("pickle", exist_ok=True)
         save_to_pickle(x_train_pickle, X_train)
         save_to_pickle(x_test_pickle, X_test)
         save_to_pickle(y_train_pickle, y_train)
         save_to_pickle(y_test_pickle, y_test)
 
-    return X_train, X_test, y_train, y_test
+        return X_train, X_test, y_train, y_test
+
+    return X_clean, y_clean
