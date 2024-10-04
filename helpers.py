@@ -15,11 +15,13 @@ import pandas as pd
 from random import randint
 import pickle
 from unidecode import unidecode
-from nltk.corpus import stopwords
 from tqdm import tqdm
 tqdm.pandas()
+
 import nltk
+from nltk.corpus import stopwords
 nltk.download('stopwords')
+
 import spacy
 nlp = spacy.load("en_core_web_sm")
 
@@ -78,7 +80,15 @@ def print_text(X, y, idx=None):
         print(f"Can't print email contents: {e}")
 
 
-def clean_text(text):
+def clean_text(text: str) -> str:
+    """Clean text by removing special characters, accents, numbers, and converting to lowercase
+
+    Args:
+        text (str): text to clean
+
+    Returns:
+        str: cleaned text
+    """
 
     # Remove special characters
     text = re.sub(r'[^A-Za-z\s]', '', text)
@@ -98,7 +108,15 @@ def clean_text(text):
     return text
 
 
-def remove_stopwords(text):
+def remove_stopwords(text: str) -> str:
+    """Remove stopwords from the text
+
+    Args:
+        text (str): text to remove stopwords from
+
+    Returns:
+        str: text without stopwords
+    """
 
     # get english stopwords
     stopwords_sp = stopwords.words("english")
@@ -110,7 +128,17 @@ def remove_stopwords(text):
     return ' '.join(tokens)
 
 
-def remove_short_sentences(X, y, min_len=3):
+def remove_short_sentences(X: pd.Series, y:pd.Series, min_len: int = 3) -> tuple[pd.Series, pd.Series]:
+    """Remove short sentences from the dataset
+
+    Args:
+        X (pd.Series): features
+        y (pd.Series): labels
+        min_len (int, optional): Minimum length of a sentence in words. Defaults to 3.
+
+    Returns:
+        tuple[pd.Series, pd.Series]: filtered features and labels
+    """
 
     def filter_short_texts(text):
         return len(text.split()) >= min_len
@@ -121,38 +149,66 @@ def remove_short_sentences(X, y, min_len=3):
     return X_filtered, y_filtered
 
 
-def lemmatize_text(text):
+def lemmatize_text(text: str) -> str:
+    """Lemmatize the text
+
+    Args:
+        text (str): text to lemmatize
+
+    Returns:
+        str: lemmatized text
+    """
     doc = nlp(text, disable=['ner', 'parser'])
 
     # Extract the lemmatized version of each token
     return " ".join([token.lemma_ for token in doc])
 
 
-def clean_dataset(X, y):
+def clean_dataset(X: pd.Series, y: pd.Series) -> tuple[pd.Series, pd.Series]:
+    """Clean the dataset by applying the following steps:
+    - Cleaning: remove special characters, accents, numbers, and convert to lowercase
+    - Removing stopwords: remove stopwords from the text
+    - Removing short sentences: remove sentences with less than 3 words
+    - Lemmatization: lemmatize the text
 
-    X_clean = X.copy()
-    y_clean = y.copy()
+    Args:
+        X (pd.Series): features
+        y (pd.Series): labels
+
+    Returns:
+        tuple[pd.Series, pd.Series]: cleaned features and labels
+    """
 
     # apply cleaning
     print("Cleaning Text")
-    X_clean = X_clean.progress_apply(clean_text)
+    X = X.progress_apply(clean_text)
 
     # apply removing stopwords
     print("Removing Stopwords")
-    X_clean = X_clean.progress_apply(remove_stopwords)
+    X = X.progress_apply(remove_stopwords)
 
     # apply remove short sentences (less than 3 words)
     print("Removing short sentences")
-    X_clean, y_clean = remove_short_sentences(X_clean, y_clean)
+    X, y = remove_short_sentences(X, y)
 
     # apply lemmatization
     print("Lemmatizing Text")
-    X_clean = X_clean.progress_apply(lemmatize_text)
+    X = X.progress_apply(lemmatize_text)
 
-    return X_clean, y_clean
+    return X, y
 
 
-def vectorize_bow(X_train, X_test=None):
+def vectorize_bow(X_train: pd.Series, X_test: pd.Series = None) -> tuple[pd.Series, pd.Series] | pd.Series:
+    """Vectorize the text using Bag of Words (CountVectorizer)
+
+    Args:
+        X_train (pd.Series): training dataset
+        X_test (pd.Series, optional): testing dataset. Defaults to None.
+
+    Returns:
+        tuple[pd.Series, pd.Series] | pd.Series: vectorized datasets
+    """
+
     # Initialize CountVectorizer
     vectorizer = CountVectorizer()
 
@@ -166,7 +222,16 @@ def vectorize_bow(X_train, X_test=None):
     return X_train_vect
 
 
-def vectorize_tfidf(X_train, X_test=None):
+def vectorize_tfidf(X_train: pd.Series, X_test: pd.Series = None) -> tuple[pd.Series, pd.Series] | pd.Series:
+    """Vectorize the text using TF-IDF
+
+    Args:
+        X_train (pd.Series): training dataset
+        X_test (pd.Series, optional): testing dataset. Defaults to None.
+
+    Returns:
+        tuple[pd.Series, pd.Series] | pd.Series: vectorized datasets
+    """
 
     ngrange = (1, 3)
     max_feat = None
@@ -180,11 +245,20 @@ def vectorize_tfidf(X_train, X_test=None):
     if X_test is not None:
         X_test_vect = tfidf_vectorizer.transform(X_test).toarray()
         return X_train_vect, X_test_vect
-    
+
     return X_train_vect
 
 
-def split_dataset(X, y):
+def split_dataset(X: pd.Series, y: pd.Series) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
+    """Split the dataset into training and testing datasets
+
+    Args:
+        X (pd.Series): features
+        y (pd.Series): labels
+
+    Returns:
+        tuple[pd.Series, pd.Series, pd.Series, pd.Series]: training and testing datasets
+    """
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=True, random_state=42, stratify=y)
 
@@ -197,7 +271,18 @@ def split_dataset(X, y):
     return X_train, X_test, y_train, y_test
 
 
-def load_dataset(file_path, split=True, clean=True, force_reload=False):
+def load_dataset(file_path: str, split: bool = True, clean: bool = True, force_reload: bool = False) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series] | tuple[pd.Series, pd.Series]:
+    """Load the dataset from the file path and apply cleaning, splitting, and save the cleaned dataset to pickle files
+
+    Args:
+        file_path (str): path to the dataset file
+        split (bool, optional): Split the dataset. Defaults to True.
+        clean (bool, optional): Clean the dataset. Defaults to True.
+        force_reload (bool, optional): Force reload the dataset, ignore pickled files. Defaults to False.
+
+    Returns:
+        tuple[pd.Series, pd.Series, pd.Series, pd.Series] | tuple[pd.Series, pd.Series]: training and testing datasets
+    """
 
     # check if pickle files exist
     os.makedirs('pickle', exist_ok=True)
@@ -228,7 +313,7 @@ def load_dataset(file_path, split=True, clean=True, force_reload=False):
         print("Cleaning dataset.")
         X_clean, y_clean = clean_dataset(X, y)
     else:
-        X_clean, y_clean = X_train.copy(), y_train.copy()
+        X_clean, y_clean = X.copy(), y.copy()
 
     # split dataset
     if split:

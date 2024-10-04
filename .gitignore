@@ -167,5 +167,6 @@ REAL_DATA.txt
 TRAINING_DATA.txt
 Notes.ipynb
 *.pptx
-*.pdf
-*.csv
+X_train_tsne.csv
+X_test_tsne.csv
+Presentation Feedback.pdf
