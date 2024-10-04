@@ -68,7 +68,15 @@ def pickled_data_exists(filenames: list) -> bool:
     return all(os.path.exists(filename) for filename in filenames)
 
 
-def print_text(X, y, idx=None):
+def print_text(X: pd.Series, y: pd.Series, idx: int = None) -> None:
+    """Print the text and label of an email at the given index (or random)
+
+    Args:
+        X (pd.Series): features
+        y (pd.Series): labels
+        idx (int, optional): index. Defaults to None (random).
+    """
+
     try:
         print(SEPARATOR)
         if idx is None:
