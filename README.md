@@ -33,6 +33,23 @@ Build a classifier to differenciate real news from fake news using a kaggle data
 
 <img src="readme/readme_intro.png" width=500>
 
+## Project Results
+
+In this project, we processed a dataset of real/fake news and explored different ML models and vectorizing methods to classify them.
+
+We achieved the best results using a stacked model approach:
+- Multinomial NB
+- Bernouilli NB
+- Complement NB 
+- Random Forest
+- Meta Classifier: Logistic Regression
+- Validation accuracy of 95% 
+
+Here's a chart comparing the tested models, as well as a confusion matrix of the best one (stacked):
+
+<img src="readme/models_comparison.png" width=500>
+<img src="readme/conf_matrix.png" width=500>
+
 ## Installation
 Use **requirements.txt** to install the required packages to run the notebooks. It is advised to use a virtual environment.
 ```bash
