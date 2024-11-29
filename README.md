@@ -47,8 +47,8 @@ We achieved the best results using a stacked model approach:
 
 Here's a chart comparing the tested models, as well as a confusion matrix of the best one (stacked):
 
-<img src="readme/models_comparison.png" width=500>
-<img src="readme/conf_matrix.png" width=500>
+<img src="readme/models_comparison.png">
+<img src="readme/conf_matrix.png">
 
 ## Installation
 Use **requirements.txt** to install the required packages to run the notebooks. It is advised to use a virtual environment.
